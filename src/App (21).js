@@ -36,7 +36,7 @@ const END_DATE   = new Date(2025, 7, 1);
 
 // Layout constants
 const DEFAULT_HOUR_PX  = 4;   // px per hour
-const BADGE_ROW_HEIGHT = 12;  // px
+const BADGE_ROW_HEIGHT = 12;  // px for the date badge row
 
 // Build weeks (Mon→Sun)
 function buildWeeks(start, end) {
@@ -294,7 +294,7 @@ export default function App() {
                                backgroundColor:flightCategoryColor[rec.flight_category]
                              }}
                         />
-                      );  
+                      );
                     })}
                   </div>
                 );
@@ -358,13 +358,12 @@ export default function App() {
           zIndex:1000
         }}>
           <div style={{
-            fontSize:10,
+            fontSize:8,
             color:'#666',
             marginBottom:6,
             textAlign:'center'
           }}>
-            Use the tabs to hide/show layers<br/>
-            and filter by flight category.
+            Use the tabs to hide/show layers and filter by flight category.
           </div>
           {tailsOrder.map(t => (
             <button key={t}
@@ -423,4 +422,3 @@ export default function App() {
     </div>
   );
 }
-
