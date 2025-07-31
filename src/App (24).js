@@ -68,10 +68,10 @@ function formatBadge(d) {
 // Background by weekday
 function getBg(d) {
   const wd = d.getDay();
-  if (wd === 2 || wd === 4) return '#F5F5F5'; // Tue/Thu
-  if (wd === 6)            return '#E6F9E6'; // Sat
-  if (wd === 0)            return '#E6F0FF'; // Sun
-  return 'transparent';                // Mon/Wed/Fri
+  if (wd === 2 || wd === 4) return '#F5F5F5';
+  if (wd === 6)            return '#E6F9E6';
+  if (wd === 0)            return '#E6F0FF';
+  return 'transparent';
 }
 
 export default function App() {
@@ -167,17 +167,13 @@ export default function App() {
       const width = (eH - sH) * hourPx;
 
       return (
-        <div
-          key={i}
-          title={`${tail} ${date.toLocaleDateString()} ${start}–${end}`}
-          style={{
-            position: 'absolute',
-            left:     `${left}px`,
-            width:    `${width}px`,
-            height:   '100%',
-            backgroundColor: tailColors[tail],
-          }}
-        />
+        <div key={i}
+             title={`${tail} ${date.toLocaleDateString()} ${start}–${end}`}
+             style={{
+               position:'absolute', left:`${left}px`,
+               width:`${width}px`, height:'100%',
+               backgroundColor: tailColors[tail]
+             }}/>
       );
     });
   }
@@ -194,11 +190,11 @@ export default function App() {
     const startL = pos?.left ?? box.left;
     const startT = pos?.top  ?? box.top;
 
-    const onMove = (ev) => {
+    const onMove = ev => {
       let dx = ev.clientX - startX, dy = ev.clientY - startY;
       let newL = startL + dx, newT = startT + dy;
-      // constrain so handle stays onscreen
-      const minL = - (box.width - handle.width);
+      // keep handle visible
+      const minL = -(box.width - handle.width);
       const maxL = window.innerWidth - handle.width;
       const minT = 0, maxT = window.innerHeight - handle.height;
       newL = Math.min(Math.max(newL, minL), maxL);
@@ -215,9 +211,9 @@ export default function App() {
     e.target.setPointerCapture(e.pointerId);
   };
 
-  // Position style
+  // Styles for the draggable box
   const boxStyle = pos
-    ? { left: pos.left, top: pos.top }
+    ? { left:pos.left, top:pos.top }
     : { right:20, top:'50%', transform:'translateY(-50%)' };
 
   return (
@@ -228,11 +224,9 @@ export default function App() {
       <div style={{ marginBottom:16 }}>
         <label>
           Zoom:&nbsp;
-          <input
-            type="range" min="2" max="8" step="2"
-            value={hourPx}
-            onChange={e=>setHourPx(+e.target.value)}
-          />
+          <input type="range" min="2" max="8" step="2"
+                 value={hourPx}
+                 onChange={e=>setHourPx(+e.target.value)}/>
           &nbsp;{hourPx}px/hour
         </label>
       </div>
@@ -282,7 +276,9 @@ export default function App() {
                   padding:0,fontSize:8,
                   lineHeight:`${BADGE_ROW_HEIGHT}px`,
                   position:'relative'
-                }}>{formatBadge(d)}</div>
+                }}>
+                  {formatBadge(d)}
+                </div>
               ))}
 
               {/* Aircraft */}
@@ -327,7 +323,7 @@ export default function App() {
                 );
               })}
 
-              {/* Temp row */}
+              {/* Temp heatmap */}
               {week.map((d,di)=>{
                 const key = d.toISOString().slice(0,10),
                       hrMap = metarLookup[key]||{};
@@ -376,66 +372,54 @@ export default function App() {
             position:'fixed',
             border:'1px solid #CCC',
             borderRadius:4,
-            padding:0,
+            padding:8,
             background:'#FFF',
             zIndex:1000,
-            width:200,
             ...boxStyle
           }}
         >
-          {/* Grab Handle */}
           <div
             ref={handleRef}
             onPointerDown={onPointerDown}
             style={{
               cursor:'grab',
-              background:'#F0F0F0',
-              borderBottom:'1px solid #CCC',
-              padding:'6px',
-              textAlign:'center',
               fontSize:10,
-              color:'#333',
-              userSelect:'none'
+              color:'#666',
+              marginBottom:6,
+              textAlign:'center'
             }}
           >
-            Grab in this area to move this box<br/><hr/>Use the tabs to hide/show layers<br/>and filter by flight category.
+            Use the tabs to hide/show layers<br/>and filter by flight category.
           </div>
-
-          {/* Buttons */}
-          <div style={{ padding:'8px' }}>
-            {tailsOrder.map(t=>(
-              <button key={t} onClick={()=>toggleAC(t)} style={{
-                display:'block',marginBottom:8,padding:'4px 8px',
-                background: visible[t]? tailColors[t]:'#CCC',
-                color:'#FFF',border:'none',cursor:'pointer',width:'100%'
-              }}>{t}</button>
-            ))}
-
-            <button onClick={()=>setShowFlightCat(f=>!f)} style={{
+          {tailsOrder.map(t=>(
+            <button key={t} onClick={()=>toggleAC(t)} style={{
               display:'block',marginBottom:8,padding:'4px 8px',
-              background: showFlightCat?'#555':'#CCC',
+              background: visible[t]? tailColors[t]:'#CCC',
               color:'#FFF',border:'none',cursor:'pointer',width:'100%'
-            }}>Flight Category</button>
-
-            <div style={{ marginLeft:4, marginBottom:8 }}>
-              {['LIFR','IFR','MVFR','VFR'].map(cat=>(
-                <button key={cat} onClick={()=>toggleCat(cat)} style={{
-                  display:'flex',justifyContent:'space-between',alignItems:'center',
-                  margin:'2px 0',padding:'2px 6px',
-                  background: catFilters[cat]? flightCategoryColor[cat]:'#CCC',
-                  color:'#FFF',border:'none',cursor:'pointer',width:'100%'
-                }}>
-                  <span>{cat}</span><span>{categoryCounts[cat]}</span>
-                </button>
-              ))}
-            </div>
-
-            <button onClick={()=>setShowTemp(t=>!t)} style={{
-              display:'block',padding:'4px 8px',
-              background: showTemp?'#555':'#CCC',
-              color:'#FFF',border:'none',cursor:'pointer',width:'100%'
-            }}>Temperature</button>
+            }}>{t}</button>
+          ))}
+          <button onClick={()=>setShowFlightCat(f=>!f)} style={{
+            display:'block',marginBottom:8,padding:'4px 8px',
+            background: showFlightCat?'#555':'#CCC',
+            color:'#FFF',border:'none',cursor:'pointer',width:'100%'
+          }}>Flight Category</button>
+          <div style={{ marginLeft:4, marginBottom:8 }}>
+            {['LIFR','IFR','MVFR','VFR'].map(cat=>(
+              <button key={cat} onClick={()=>toggleCat(cat)} style={{
+                display:'flex',justifyContent:'space-between',alignItems:'center',
+                margin:'2px 0',padding:'2px 6px',
+                background: catFilters[cat]? flightCategoryColor[cat]:'#CCC',
+                color:'#FFF',border:'none',cursor:'pointer',width:'100%'
+              }}>
+                <span>{cat}</span><span>{categoryCounts[cat]}</span>
+              </button>
+            ))}
           </div>
+          <button onClick={()=>setShowTemp(t=>!t)} style={{
+            display:'block',padding:'4px 8px',
+            background: showTemp?'#555':'#CCC',
+            color:'#FFF',border:'none',cursor:'pointer',width:'100%'
+          }}>Temperature</button>
         </div>
       </div>
     </div>
