@@ -5,28 +5,26 @@ import metarData from './alb_metar.json';
 // Aircraft identifiers & colors
 const tailsOrder = ['N65620','N854GW','N756VH'];
 const tailColors = {
-  N65620: '#8A2BE2',
-  N854GW: '#2A9D8F',
-  N756VH: '#264653',
+  N65620:'#E63946',
+  N854GW:'#2A9D8F',
+  N756VH:'#264653'
 };
 
 // Flight‐category colors
 const flightCategoryColor = {
-  LIFR: '#FF00FF',
-  IFR:  '#FF0000',
-  MVFR: '#0000FF',
-  VFR:  '#00FF00',
+  LIFR:'#FF00FF', IFR:'#FF0000',
+  MVFR:'#0000FF', VFR:'#00FF00'
 };
 
 // Temperature heatmap
-function tempToColor(temp) {
-  if (temp == null)    return 'transparent';
-  if (temp <= -30)     return '#2c003e';
-  if (temp <= -10)     return '#0033cc';
-  if (temp <= 0)       return '#33ccff';
-  if (temp <= 10)      return '#66ffcc';
-  if (temp <= 20)      return '#ffff99';
-  if (temp <= 30)      return '#ffcc00';
+function tempToColor(temp){
+  if(temp==null) return 'transparent';
+  if(temp<=-30)  return '#2c003e';
+  if(temp<=-10)  return '#0033cc';
+  if(temp<=0)    return '#33ccff';
+  if(temp<=10)   return '#66ffcc';
+  if(temp<=20)   return '#ffff99';
+  if(temp<=30)   return '#ffcc00';
   return '#ff3300';
 }
 
@@ -38,16 +36,13 @@ const END_DATE   = new Date(2025,7,1);
 const DEFAULT_HOUR_PX  = 4;
 const BADGE_ROW_HEIGHT = 12;
 
-// Hours for tick marks
-const HOURS = [0,6,12,18];
-
-// Build week arrays (Mon→Sun)
-function buildWeeks(start,end) {
+// Build Mon→Sun weeks
+function buildWeeks(start,end){
   const weeks = [];
   const first = new Date(start);
   first.setDate(first.getDate() - ((first.getDay()+6)%7));
   let cur = new Date(first);
-  while(cur <= end) {
+  while(cur <= end){
     const wk = [];
     for(let i=0;i<7;i++){
       wk.push(new Date(cur));
@@ -58,17 +53,17 @@ function buildWeeks(start,end) {
   return weeks;
 }
 
-// Format the day badge
-function formatBadge(d) {
-  const m = d.getMonth()+1, day = d.getDate(), y=d.getFullYear();
+// Date‐badge formatting
+function formatBadge(d){
+  const m=d.getMonth()+1, day=d.getDate(), y=d.getFullYear();
   if(m===1&&day===1) return `${m}/${day}/${y}`;
   if(day===1)       return `${m}/${day}`;
   return `${day}`;
 }
 
-// Background by weekday
-function getBg(d) {
-  const wd = d.getDay();
+// Day‐of‐week bg
+function getBg(d){
+  const wd=d.getDay();
   if(wd===2||wd===4) return '#F5F5F5'; // Tue/Thu
   if(wd===6)        return '#E6F9E6'; // Sat
   if(wd===0)        return '#E6F0FF'; // Sun
@@ -76,47 +71,49 @@ function getBg(d) {
 }
 
 export default function App(){
-  // Zoom state
+  // zoom
   const [hourPx,setHourPx] = useState(DEFAULT_HOUR_PX);
   const DAY_WIDTH   = 24 * hourPx;
-  const AC_ROW_H    = hourPx * 2;
   const METAR_ROW_H = hourPx;
+  const AC_ROW_H    = hourPx * 2;
 
-  // Aircraft visibility toggles
+  // aircraft visibility
   const [visible,setVisible] = useState(
     tailsOrder.reduce((o,t)=>(o[t]=true,o),{})
   );
-  const toggleAC = t => setVisible(v=>({...v,[t]:!v[t]}));
+  const toggleAC = t=>setVisible(v=>({...v,[t]:!v[t]}));
 
-  // Show/hide flight category & temperature
+  // show/hide flight cat & temp
   const [showFlightCat,setShowFlightCat] = useState(true);
   const [showTemp,setShowTemp]           = useState(true);
 
-  // Flight category filters
+  // category filters
   const [catFilters,setCatFilters] = useState({
     LIFR:true, IFR:true, MVFR:true, VFR:true
   });
-  const toggleCat = c => setCatFilters(f=>({...f,[c]:!f[c]}));
+  const toggleCat = c=>setCatFilters(f=>({...f,[c]:!f[c]}));
 
-  // METAR lookup by date/hour
+  // METAR lookup
   const metarLookup = useMemo(()=>{
-    const m = {};
+    const m={};
     metarData.forEach(r=>{
-      const dateKey = r.local_time.slice(0,10);
-      const hr = new Date(r.local_time).getHours();
-      (m[dateKey] = m[dateKey]||{})[hr] = r;
+      const key=r.local_time.slice(0,10);
+      const hr=new Date(r.local_time).getHours();
+      (m[key]=m[key]||{})[hr]=r;
     });
     return m;
   },[]);
 
-  // Check if block intersects a category
-  const blockHasCategory = useCallback((date,st,et,cat)=>{
-    let sh=+st.slice(0,2), sm=+st.slice(2), sMin=sh*60+sm;
-    let eh=+et.slice(0,2), em=+et.slice(2), eMin=eh*60+em;
+  // helper: does a block hit a category?
+  const blockHasCategory = useCallback((date,start,end,cat)=>{
+    let sh=+start.slice(0,2), sm=+start.slice(2),
+        sMin=sh*60+sm,
+        eh=+end.slice(0,2), em=+end.slice(2),
+        eMin=eh*60+em;
     if(eMin<=sMin) eMin+=1440;
     for(let t=sMin;t<eMin;t+=60){
-      let hr=Math.floor(t/60),
-          dKey=date.toISOString().slice(0,10);
+      let hr=Math.floor(t/60);
+      let dKey=date.toISOString().slice(0,10);
       if(hr>=24){
         const nd=new Date(date);
         nd.setDate(nd.getDate()+1);
@@ -129,7 +126,7 @@ export default function App(){
     return false;
   },[metarLookup]);
 
-  // Category counts
+  // counts per category
   const categoryCounts = useMemo(()=>{
     const cnt={LIFR:0,IFR:0,MVFR:0,VFR:0};
     tailsOrder.forEach(tail=>{
@@ -146,35 +143,39 @@ export default function App(){
     return cnt;
   },[visible,blockHasCategory]);
 
-  // Weeks array
+  // weeks
   const weeks = useMemo(()=>buildWeeks(START_DATE,END_DATE),[]);
 
-  // Render blocks for one tail on a date
+  // render one tail’s blocks
   function renderBlocks(tail,date){
     const key=date.toISOString().slice(0,10),
           blocks=data[tail].blocksByDate[key]||[];
     return blocks.map(([st,et],i)=>{
-      if(!Object.entries(catFilters).some(([c,on]) =>
-           on && blockHasCategory(date,st,et,c)
+      if(!Object.entries(catFilters).some(([c,on])=> on&&
+         blockHasCategory(date,st,et,c)
       )) return null;
-      let sh=+st.slice(0,2), sm=+st.slice(2), sH=sh+sm/60;
-      let eh=+et.slice(0,2), em=+et.slice(2), eH=eh+em/60;
+
+      let sh=+st.slice(0,2), sm=+st.slice(2),
+          sH=sh+sm/60,
+          eh=+et.slice(0,2), em=+et.slice(2),
+          eH=eh+em/60;
       if(eH<=sH) eH+=24;
+
       return (
         <div key={i}
              title={`${tail} ${date.toLocaleDateString()} ${st}–${et}`}
              style={{
                position:'absolute',
-               left:  `${sH * hourPx}px`,
-               width: `${(eH - sH) * hourPx}px`,
+               left:  `${sH*hourPx}px`,
+               width: `${(eH-sH)*hourPx}px`,
                height:'100%',
-               backgroundColor: tailColors[tail]
+               backgroundColor:tailColors[tail]
              }}/>
       );
     });
   }
 
-  // Draggable panel refs & state
+  // draggable panel
   const boxRef    = useRef(null);
   const handleRef = useRef(null);
   const [pos,setPos] = useState(null);
@@ -182,9 +183,9 @@ export default function App(){
   const onPointerDown = e => {
     const box    = boxRef.current.getBoundingClientRect();
     const handle = handleRef.current.getBoundingClientRect();
-    const sx = e.clientX, sy = e.clientY;
-    const sl = pos?.left ?? box.left;
-    const st = pos?.top  ?? box.top;
+    const sx=e.clientX, sy=e.clientY;
+    const sl=pos?.left ?? box.left;
+    const st=pos?.top  ?? box.top;
 
     const onMove = ev => {
       let dx=ev.clientX-sx, dy=ev.clientY-sy;
@@ -198,16 +199,19 @@ export default function App(){
     };
     const onUp = () => {
       window.removeEventListener('pointermove',onMove);
-      window.removeEventListener('pointerup',  onUp);
+      window.removeEventListener('pointerup',onUp);
     };
     window.addEventListener('pointermove',onMove);
-    window.addEventListener('pointerup',  onUp);
+    window.addEventListener('pointerup',onUp);
     e.target.setPointerCapture(e.pointerId);
   };
 
   const boxStyle = pos
     ? { left:pos.left, top:pos.top }
     : { right:20, top:'50%', transform:'translateY(-50%)' };
+
+  // hours to draw
+  const hours = [0,6,12,18];
 
   return (
     <div style={{padding:20,fontFamily:'sans-serif'}}>
@@ -217,9 +221,12 @@ export default function App(){
       <div style={{marginBottom:16}}>
         <label>
           Zoom:&nbsp;
-          <input type="range" min="2" max="8" step="2"
-                 value={hourPx}
-                 onChange={e=>setHourPx(+e.target.value)}/>
+          <input
+            type="range"
+            min="2" max="8" step="2"
+            value={hourPx}
+            onChange={e=>setHourPx(+e.target.value)}
+          />
           &nbsp;{hourPx}px/hour
         </label>
       </div>
@@ -237,32 +244,34 @@ export default function App(){
         )}
       </div>
 
-      {/* Chart + overlays + panel */}
+      {/* Chart + ticks + panel */}
       <div style={{position:'relative'}}>
-        {/* Scroll container */}
+        {/* scrollable chart */}
         <div style={{overflowX:'auto',position:'relative'}}>
-
-          {/* Tick labels (single overlay) */}
+          {/*** TICK OVERLAYS ***/}
+          {/* labels */}
           <div style={{
             position:'absolute',
             top:0,left:0,
-            width:`${7 * DAY_WIDTH}px`,
+            width:`${7*DAY_WIDTH}px`,
             height:`${BADGE_ROW_HEIGHT}px`,
-            pointerEvents:'none',
-            zIndex:1
+            pointerEvents:'none'
           }}>
             {(() => {
               const labs = [];
               for(let d=0; d<7; d++){
-                HOURS.forEach(h=>{
+                hours.forEach(h => {
                   labs.push(
-                    <span key={`lab-${d}-${h}`} style={{
-                      position:'absolute',
-                      left:  `${d*DAY_WIDTH + h*hourPx}px`,
-                      top:   0,
-                      fontSize:8,
-                      color:'#666'
-                    }}>
+                    <span
+                      key={`lab-${d}-${h}`}
+                      style={{
+                        position:'absolute',
+                        left:`${d*DAY_WIDTH + h*hourPx}px`,
+                        top:0,
+                        fontSize:8,
+                        color:'#666'
+                      }}
+                    >
                       {String(h).padStart(2,'0')}
                     </span>
                   );
@@ -271,29 +280,30 @@ export default function App(){
               return labs;
             })()}
           </div>
-
-          {/* Tick lines (single overlay) */}
+          {/* lines */}
           <div style={{
             position:'absolute',
             top:0,left:0,
-            width:`${7 * DAY_WIDTH}px`,
+            width:`${7*DAY_WIDTH}px`,
             height:'100%',
-            pointerEvents:'none',
-            zIndex:1
+            pointerEvents:'none'
           }}>
             {(() => {
               const lines = [];
               for(let d=0; d<7; d++){
-                HOURS.forEach(h=>{
+                hours.forEach(h => {
                   lines.push(
-                    <div key={`ln-${d}-${h}`} style={{
-                      position:'absolute',
-                      left:  `${d*DAY_WIDTH + h*hourPx}px`,
-                      top:   0,
-                      width: 1,
-                      height:'100%',
-                      backgroundColor:'#CCC'
-                    }}/>
+                    <div
+                      key={`line-${d}-${h}`}
+                      style={{
+                        position:'absolute',
+                        left:`${d*DAY_WIDTH + h*hourPx}px`,
+                        top:0,
+                        width:1,
+                        height:'100%',
+                        backgroundColor:'#CCC'
+                      }}
+                    />
                   );
                 });
               }
@@ -301,9 +311,9 @@ export default function App(){
             })()}
           </div>
 
-          {/* Actual chart grid, pushed down by badge height */}
-          <div style={{marginTop:BADGE_ROW_HEIGHT}}>
-            {weeks.map((week,wi)=>(
+          {/* weeks grid */}
+          <div>
+            {weeks.map((week, wi)=>(
               <div key={wi} style={{
                 display:'grid',
                 gridTemplateColumns:`repeat(7, ${DAY_WIDTH}px)`,
@@ -316,7 +326,7 @@ export default function App(){
                 marginBottom:2,
                 borderBottom:'1px solid #DDD'
               }}>
-                {/* Date badges */}
+                {/* date badges */}
                 {week.map((d,di)=>(
                   <div key={di} style={{
                     gridRowStart:1,
@@ -329,11 +339,11 @@ export default function App(){
                   </div>
                 ))}
 
-                {/* Aircraft rows */}
+                {/* aircraft rows */}
                 {tailsOrder.map((t,ti)=>
                   week.map((d,di)=>(
                     <div key={`${t}-${di}`} style={{
-                      gridRowStart:ti+2,
+                      gridRowStart: ti+2,
                       position:'relative',
                       background:getBg(d)
                     }}>
@@ -345,9 +355,9 @@ export default function App(){
                 {/* 2px gap */}
                 <div style={{gridRowStart:5}}/>
 
-                {/* Flight category row */}
+                {/* flight category */}
                 {week.map((d,di)=>{
-                  const recs = metarLookup[d.toISOString().slice(0,10)]||{};
+                  const recs=metarLookup[d.toISOString().slice(0,10)]||{};
                   return (
                     <div key={di} style={{
                       gridRowStart:6,
@@ -355,26 +365,28 @@ export default function App(){
                       background:getBg(d)
                     }}>
                       {showFlightCat && Object.values(recs).map(rec=>{
-                        const h = new Date(rec.local_time).getHours();
+                        const h=new Date(rec.local_time).getHours();
                         return (
-                          <div key={rec.local_time}
-                               title={`${rec.local_time}: ${rec.flight_category}\n${rec.raw_data}`}
-                               style={{
-                                 position:'absolute',
-                                 left:`${h*hourPx}px`,
-                                 width:`${hourPx}px`,
-                                 height:'100%',
-                                 backgroundColor:flightCategoryColor[rec.flight_category]
-                               }}/>
+                          <div
+                            key={rec.local_time}
+                            title={`${rec.local_time}: ${rec.flight_category}\n${rec.raw_data}`}
+                            style={{
+                              position:'absolute',
+                              left:`${h*hourPx}px`,
+                              width:`${hourPx}px`,
+                              height:'100%',
+                              backgroundColor:flightCategoryColor[rec.flight_category]
+                            }}
+                          />
                         );
                       })}
                     </div>
                   );
                 })}
 
-                {/* Temperature row */}
+                {/* temperature */}
                 {week.map((d,di)=>{
-                  const recs = metarLookup[d.toISOString().slice(0,10)]||{};
+                  const recs=metarLookup[d.toISOString().slice(0,10)]||{};
                   return (
                     <div key={di} style={{
                       gridRowStart:7,
@@ -382,17 +394,19 @@ export default function App(){
                       background:getBg(d)
                     }}>
                       {showTemp && Object.values(recs).map(rec=>{
-                        const h = new Date(rec.local_time).getHours();
+                        const h=new Date(rec.local_time).getHours();
                         return (
-                          <div key={rec.local_time}
-                               title={`${rec.local_time}: ${rec.temp_C}°C / ${rec.dewpoint_C}°C`}
-                               style={{
-                                 position:'absolute',
-                                 left:`${h*hourPx}px`,
-                                 width:`${hourPx}px`,
-                                 height:'100%',
-                                 backgroundColor:tempToColor(rec.temp_C)
-                               }}/>
+                          <div
+                            key={rec.local_time}
+                            title={`${rec.local_time}: ${rec.temp_C}°C / ${rec.dewpoint_C}°C`}
+                            style={{
+                              position:'absolute',
+                              left:`${h*hourPx}px`,
+                              width:`${hourPx}px`,
+                              height:'100%',
+                              backgroundColor:tempToColor(rec.temp_C)
+                            }}
+                          />
                         );
                       })}
                     </div>
@@ -439,14 +453,18 @@ export default function App(){
                 padding:'6px',width:'100%',
                 background: visible[t]? tailColors[t] : '#CCC',
                 color:'#FFF',border:'none',cursor:'pointer'
-              }}>{t}</button>
+              }}>
+                {t}
+              </button>
             ))}
             <button onClick={()=>setShowFlightCat(f=>!f)} style={{
               display:'block',margin:'6px 0',
               padding:'6px',width:'100%',
               background: showFlightCat? '#555' : '#CCC',
               color:'#FFF',border:'none',cursor:'pointer'
-            }}>Flight Category</button>
+            }}>
+              Flight Category
+            </button>
             {['LIFR','IFR','MVFR','VFR'].map(cat=>(
               <button key={cat} onClick={()=>toggleCat(cat)} style={{
                 display:'flex',justifyContent:'space-between',
@@ -462,10 +480,11 @@ export default function App(){
               padding:'6px',width:'100%',
               background: showTemp? '#555' : '#CCC',
               color:'#FFF',border:'none',cursor:'pointer'
-            }}>Temperature</button>
+            }}>
+              Temperature
+            </button>
           </div>
         </div>
-
       </div>
     </div>
   );

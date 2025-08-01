@@ -2,52 +2,47 @@ import React, { useMemo, useState, useCallback, useRef } from 'react';
 import data from './aircraft_activity.json';
 import metarData from './alb_metar.json';
 
-// Aircraft identifiers & colors
+// --- constants --------------------------------------------------
+
 const tailsOrder = ['N65620','N854GW','N756VH'];
 const tailColors = {
-  N65620: '#8A2BE2',
-  N854GW: '#2A9D8F',
-  N756VH: '#264653',
+  N65620:'#E63946',
+  N854GW:'#2A9D8F',
+  N756VH:'#264653',
 };
 
-// Flight‐category colors
 const flightCategoryColor = {
-  LIFR: '#FF00FF',
-  IFR:  '#FF0000',
-  MVFR: '#0000FF',
-  VFR:  '#00FF00',
+  LIFR:'#FF00FF', IFR:'#FF0000',
+  MVFR:'#0000FF', VFR:'#00FF00',
 };
 
-// Temperature heatmap
-function tempToColor(temp) {
-  if (temp == null)    return 'transparent';
-  if (temp <= -30)     return '#2c003e';
-  if (temp <= -10)     return '#0033cc';
-  if (temp <= 0)       return '#33ccff';
-  if (temp <= 10)      return '#66ffcc';
-  if (temp <= 20)      return '#ffff99';
-  if (temp <= 30)      return '#ffcc00';
+function tempToColor(t){
+  if (t == null)     return 'transparent';
+  if (t <= -30)      return '#2c003e';
+  if (t <= -10)      return '#0033cc';
+  if (t <= 0)        return '#33ccff';
+  if (t <= 10)       return '#66ffcc';
+  if (t <= 20)       return '#ffff99';
+  if (t <= 30)       return '#ffcc00';
   return '#ff3300';
 }
 
-// Date range
-const START_DATE = new Date(2024,6,1);
-const END_DATE   = new Date(2025,7,1);
-
-// Layout constants
+const START_DATE       = new Date(2024,6,1);
+const END_DATE         = new Date(2025,7,1);
 const DEFAULT_HOUR_PX  = 4;
 const BADGE_ROW_HEIGHT = 12;
 
-// Hours for tick marks
+// hours to show ticks at
 const HOURS = [0,6,12,18];
 
-// Build week arrays (Mon→Sun)
-function buildWeeks(start,end) {
+// --- helpers ----------------------------------------------------
+
+function buildWeeks(start,end){
   const weeks = [];
   const first = new Date(start);
   first.setDate(first.getDate() - ((first.getDay()+6)%7));
   let cur = new Date(first);
-  while(cur <= end) {
+  while(cur <= end){
     const wk = [];
     for(let i=0;i<7;i++){
       wk.push(new Date(cur));
@@ -58,16 +53,14 @@ function buildWeeks(start,end) {
   return weeks;
 }
 
-// Format the day badge
-function formatBadge(d) {
-  const m = d.getMonth()+1, day = d.getDate(), y=d.getFullYear();
-  if(m===1&&day===1) return `${m}/${day}/${y}`;
-  if(day===1)       return `${m}/${day}`;
+function formatBadge(d){
+  const m = d.getMonth()+1, day = d.getDate(), y = d.getFullYear();
+  if (m===1 && day===1) return `${m}/${day}/${y}`;
+  if (day===1)         return `${m}/${day}`;
   return `${day}`;
 }
 
-// Background by weekday
-function getBg(d) {
+function getBg(d){
   const wd = d.getDay();
   if(wd===2||wd===4) return '#F5F5F5'; // Tue/Thu
   if(wd===6)        return '#E6F9E6'; // Sat
@@ -75,53 +68,57 @@ function getBg(d) {
   return 'transparent';               // Mon/Wed/Fri
 }
 
+// --- App --------------------------------------------------------
+
 export default function App(){
-  // Zoom state
+  // zoom state
   const [hourPx,setHourPx] = useState(DEFAULT_HOUR_PX);
   const DAY_WIDTH   = 24 * hourPx;
   const AC_ROW_H    = hourPx * 2;
   const METAR_ROW_H = hourPx;
 
-  // Aircraft visibility toggles
+  // show/hide per tail
   const [visible,setVisible] = useState(
-    tailsOrder.reduce((o,t)=>(o[t]=true,o),{})
+    tailsOrder.reduce((o,t)=>{ o[t]=true; return o },{})
   );
-  const toggleAC = t => setVisible(v=>({...v,[t]:!v[t]}));
+  const toggleAC = t=> setVisible(v=>({...v,[t]:!v[t]}));
 
-  // Show/hide flight category & temperature
+  // show/hide flight‐category & temp
   const [showFlightCat,setShowFlightCat] = useState(true);
-  const [showTemp,setShowTemp]           = useState(true);
+  const [showTemp,      setShowTemp]      = useState(true);
 
-  // Flight category filters
+  // category filters
   const [catFilters,setCatFilters] = useState({
     LIFR:true, IFR:true, MVFR:true, VFR:true
   });
-  const toggleCat = c => setCatFilters(f=>({...f,[c]:!f[c]}));
+  const toggleCat = c=> setCatFilters(f=>({...f,[c]:!f[c]}));
 
-  // METAR lookup by date/hour
+  // METAR lookup [date][hour] → record
   const metarLookup = useMemo(()=>{
     const m = {};
     metarData.forEach(r=>{
-      const dateKey = r.local_time.slice(0,10);
-      const hr = new Date(r.local_time).getHours();
-      (m[dateKey] = m[dateKey]||{})[hr] = r;
+      const key = r.local_time.slice(0,10);
+      const hr  = new Date(r.local_time).getHours();
+      (m[key] = m[key]||{})[hr] = r;
     });
     return m;
   },[]);
 
-  // Check if block intersects a category
+  // block→category test
   const blockHasCategory = useCallback((date,st,et,cat)=>{
-    let sh=+st.slice(0,2), sm=+st.slice(2), sMin=sh*60+sm;
-    let eh=+et.slice(0,2), em=+et.slice(2), eMin=eh*60+em;
+    let sh=+st.slice(0,2), sm=+st.slice(2),
+        sMin=sh*60+sm,
+        eh=+et.slice(0,2), em=+et.slice(2),
+        eMin=eh*60+em;
     if(eMin<=sMin) eMin+=1440;
     for(let t=sMin;t<eMin;t+=60){
-      let hr=Math.floor(t/60),
-          dKey=date.toISOString().slice(0,10);
+      let hr = Math.floor(t/60),
+          dKey = date.toISOString().slice(0,10);
       if(hr>=24){
         const nd=new Date(date);
         nd.setDate(nd.getDate()+1);
-        dKey=nd.toISOString().slice(0,10);
-        hr%=24;
+        dKey = nd.toISOString().slice(0,10);
+        hr %= 24;
       }
       const rec=metarLookup[dKey]?.[hr];
       if(rec?.flight_category===cat) return true;
@@ -129,9 +126,9 @@ export default function App(){
     return false;
   },[metarLookup]);
 
-  // Category counts
+  // count per category among visible tails
   const categoryCounts = useMemo(()=>{
-    const cnt={LIFR:0,IFR:0,MVFR:0,VFR:0};
+    const cnt = {LIFR:0, IFR:0, MVFR:0, VFR:0};
     tailsOrder.forEach(tail=>{
       if(!visible[tail]) return;
       Object.entries(data[tail].blocksByDate).forEach(([dKey,blocks])=>{
@@ -146,20 +143,24 @@ export default function App(){
     return cnt;
   },[visible,blockHasCategory]);
 
-  // Weeks array
+  // weeks array
   const weeks = useMemo(()=>buildWeeks(START_DATE,END_DATE),[]);
 
-  // Render blocks for one tail on a date
+  // render tail’s blocks for that date
   function renderBlocks(tail,date){
-    const key=date.toISOString().slice(0,10),
-          blocks=data[tail].blocksByDate[key]||[];
+    const key = date.toISOString().slice(0,10),
+          blocks = data[tail].blocksByDate[key]||[];
     return blocks.map(([st,et],i)=>{
-      if(!Object.entries(catFilters).some(([c,on]) =>
+      if(!Object.entries(catFilters).some(([c,on])=>
            on && blockHasCategory(date,st,et,c)
       )) return null;
-      let sh=+st.slice(0,2), sm=+st.slice(2), sH=sh+sm/60;
-      let eh=+et.slice(0,2), em=+et.slice(2), eH=eh+em/60;
+
+      const sh=+st.slice(0,2), sm=+st.slice(2),
+            sH=sh + sm/60,
+            eh=+et.slice(0,2), em=+et.slice(2),
+            eH=eh + em/60;
       if(eH<=sH) eH+=24;
+
       return (
         <div key={i}
              title={`${tail} ${date.toLocaleDateString()} ${st}–${et}`}
@@ -168,35 +169,38 @@ export default function App(){
                left:  `${sH * hourPx}px`,
                width: `${(eH - sH) * hourPx}px`,
                height:'100%',
-               backgroundColor: tailColors[tail]
+               backgroundColor:tailColors[tail]
              }}/>
       );
     });
   }
 
-  // Draggable panel refs & state
+  // draggable panel refs/state
   const boxRef    = useRef(null);
-  const handleRef = useRef(null);
+  const handleRef= useRef(null);
   const [pos,setPos] = useState(null);
 
-  const onPointerDown = e => {
-    const box    = boxRef.current.getBoundingClientRect();
-    const handle = handleRef.current.getBoundingClientRect();
-    const sx = e.clientX, sy = e.clientY;
-    const sl = pos?.left ?? box.left;
-    const st = pos?.top  ?? box.top;
+  const onPointerDown = e=>{
+    const box = boxRef.current.getBoundingClientRect();
+    const h   = handleRef.current.getBoundingClientRect();
+    const sx  = e.clientX, sy = e.clientY;
+    const sl  = pos?.left ?? box.left;
+    const st  = pos?.top  ?? box.top;
 
-    const onMove = ev => {
-      let dx=ev.clientX-sx, dy=ev.clientY-sy;
-      let nl=sl+dx, nt=st+dy;
-      const minL=-(box.width-handle.width),
-            maxL=window.innerWidth-handle.width,
-            minT=0, maxT=window.innerHeight-handle.height;
-      nl=Math.min(Math.max(nl,minL),maxL);
-      nt=Math.min(Math.max(nt,minT),maxT);
+    const onMove = ev=>{
+      let dx = ev.clientX - sx,
+          dy = ev.clientY - sy;
+      let nl = sl + dx,
+          nt = st + dy;
+      const minL = -(box.width  - h.width),
+            maxL = window.innerWidth - h.width,
+            minT = 0,
+            maxT = window.innerHeight - h.height;
+      nl = Math.min(Math.max(nl,minL),maxL);
+      nt = Math.min(Math.max(nt,minT),maxT);
       setPos({left:nl,top:nt});
     };
-    const onUp = () => {
+    const onUp = ()=>{
       window.removeEventListener('pointermove',onMove);
       window.removeEventListener('pointerup',  onUp);
     };
@@ -213,18 +217,21 @@ export default function App(){
     <div style={{padding:20,fontFamily:'sans-serif'}}>
       <h2>Condair Flyers Aircraft Activity</h2>
 
-      {/* Zoom */}
+      {/* Zoom control */}
       <div style={{marginBottom:16}}>
         <label>
           Zoom:&nbsp;
-          <input type="range" min="2" max="8" step="2"
-                 value={hourPx}
-                 onChange={e=>setHourPx(+e.target.value)}/>
+          <input
+            type="range"
+            min="2" max="8" step="2"
+            value={hourPx}
+            onChange={e=>setHourPx(+e.target.value)}
+          />
           &nbsp;{hourPx}px/hour
         </label>
       </div>
 
-      {/* Weekday header */}
+      {/* Weekday headings */}
       <div style={{
         display:'grid',
         gridTemplateColumns:`repeat(7, ${DAY_WIDTH}px)`,
@@ -237,29 +244,29 @@ export default function App(){
         )}
       </div>
 
-      {/* Chart + overlays + panel */}
+      {/* Chart + single‐overlay ticks + panel */}
       <div style={{position:'relative'}}>
-        {/* Scroll container */}
+        {/* scroll container */}
         <div style={{overflowX:'auto',position:'relative'}}>
 
-          {/* Tick labels (single overlay) */}
+          {/* ——— tick labels ——— */}
           <div style={{
             position:'absolute',
-            top:0,left:0,
+            top: 0,
+            left:0,
             width:`${7 * DAY_WIDTH}px`,
             height:`${BADGE_ROW_HEIGHT}px`,
-            pointerEvents:'none',
-            zIndex:1
+            pointerEvents:'none'
           }}>
             {(() => {
-              const labs = [];
-              for(let d=0; d<7; d++){
-                HOURS.forEach(h=>{
-                  labs.push(
+              const L = [];
+              for (let d=0; d<7; d++) {
+                HOURS.forEach(h => {
+                  L.push(
                     <span key={`lab-${d}-${h}`} style={{
                       position:'absolute',
-                      left:  `${d*DAY_WIDTH + h*hourPx}px`,
-                      top:   0,
+                      left:`${d*DAY_WIDTH + h*hourPx}px`,
+                      top:0,
                       fontSize:8,
                       color:'#666'
                     }}>
@@ -268,42 +275,42 @@ export default function App(){
                   );
                 });
               }
-              return labs;
+              return L;
             })()}
           </div>
 
-          {/* Tick lines (single overlay) */}
+          {/* ——— tick lines ——— */}
           <div style={{
             position:'absolute',
-            top:0,left:0,
+            top:0,
+            left:0,
             width:`${7 * DAY_WIDTH}px`,
             height:'100%',
-            pointerEvents:'none',
-            zIndex:1
+            pointerEvents:'none'
           }}>
             {(() => {
-              const lines = [];
-              for(let d=0; d<7; d++){
-                HOURS.forEach(h=>{
-                  lines.push(
+              const L = [];
+              for (let d=0; d<7; d++) {
+                HOURS.forEach(h => {
+                  L.push(
                     <div key={`ln-${d}-${h}`} style={{
                       position:'absolute',
-                      left:  `${d*DAY_WIDTH + h*hourPx}px`,
-                      top:   0,
-                      width: 1,
+                      left:`${d*DAY_WIDTH + h*hourPx}px`,
+                      top:0,
+                      width:1,
                       height:'100%',
                       backgroundColor:'#CCC'
                     }}/>
                   );
                 });
               }
-              return lines;
+              return L;
             })()}
           </div>
 
-          {/* Actual chart grid, pushed down by badge height */}
-          <div style={{marginTop:BADGE_ROW_HEIGHT}}>
-            {weeks.map((week,wi)=>(
+          {/* ——— actual chart grid ——— */}
+          <div style={{ marginTop: BADGE_ROW_HEIGHT }}>
+            {weeks.map((week, wi)=>(
               <div key={wi} style={{
                 display:'grid',
                 gridTemplateColumns:`repeat(7, ${DAY_WIDTH}px)`,
@@ -316,7 +323,7 @@ export default function App(){
                 marginBottom:2,
                 borderBottom:'1px solid #DDD'
               }}>
-                {/* Date badges */}
+                {/* date badges */}
                 {week.map((d,di)=>(
                   <div key={di} style={{
                     gridRowStart:1,
@@ -329,7 +336,7 @@ export default function App(){
                   </div>
                 ))}
 
-                {/* Aircraft rows */}
+                {/* aircraft rows */}
                 {tailsOrder.map((t,ti)=>
                   week.map((d,di)=>(
                     <div key={`${t}-${di}`} style={{
@@ -345,7 +352,7 @@ export default function App(){
                 {/* 2px gap */}
                 <div style={{gridRowStart:5}}/>
 
-                {/* Flight category row */}
+                {/* flight‐category row */}
                 {week.map((d,di)=>{
                   const recs = metarLookup[d.toISOString().slice(0,10)]||{};
                   return (
@@ -372,7 +379,7 @@ export default function App(){
                   );
                 })}
 
-                {/* Temperature row */}
+                {/* temperature row */}
                 {week.map((d,di)=>{
                   const recs = metarLookup[d.toISOString().slice(0,10)]||{};
                   return (
@@ -398,7 +405,6 @@ export default function App(){
                     </div>
                   );
                 })}
-
               </div>
             ))}
           </div>
@@ -415,57 +421,57 @@ export default function App(){
           ...boxStyle
         }}>
           {/* Grab Handle */}
-          <div
-            ref={handleRef}
-            onPointerDown={onPointerDown}
-            style={{
-              cursor:'grab',
-              background:'#F0F0F0',
-              borderBottom:'1px solid #CCC',
-              padding:'6px',
-              fontSize:10,
-              textAlign:'center',
-              userSelect:'none'
-            }}
-          >
+          <div ref={handleRef} onPointerDown={onPointerDown}
+               style={{
+                 cursor:'grab',
+                 background:'#F0F0F0',
+                 borderBottom:'1px solid #CCC',
+                 padding:'6px',
+                 fontSize:10,
+                 textAlign:'center',
+                 userSelect:'none'
+               }}>
             Grab in this area to move the box
             <hr style={{margin:'4px 8px',borderColor:'#CCC'}}/>
             Use tabs to show/hide layers & filter by flight category
           </div>
           <div style={{padding:8}}>
             {tailsOrder.map(t=>(
-              <button key={t} onClick={()=>toggleAC(t)} style={{
+              <button key={t} onClick={()=>toggleAC(t)}
+                      style={{
                 display:'block',margin:'6px 0',
                 padding:'6px',width:'100%',
-                background: visible[t]? tailColors[t] : '#CCC',
+                background:visible[t]?tailColors[t]:'#CCC',
                 color:'#FFF',border:'none',cursor:'pointer'
               }}>{t}</button>
             ))}
-            <button onClick={()=>setShowFlightCat(f=>!f)} style={{
+            <button onClick={()=>setShowFlightCat(f=>!f)}
+                    style={{
               display:'block',margin:'6px 0',
               padding:'6px',width:'100%',
-              background: showFlightCat? '#555' : '#CCC',
+              background:showFlightCat?'#555':'#CCC',
               color:'#FFF',border:'none',cursor:'pointer'
             }}>Flight Category</button>
             {['LIFR','IFR','MVFR','VFR'].map(cat=>(
-              <button key={cat} onClick={()=>toggleCat(cat)} style={{
+              <button key={cat} onClick={()=>toggleCat(cat)}
+                      style={{
                 display:'flex',justifyContent:'space-between',
                 margin:'4px 0',padding:'4px 8px',width:'100%',
-                background: catFilters[cat]? flightCategoryColor[cat] : '#CCC',
+                background:catFilters[cat]?flightCategoryColor[cat]:'#CCC',
                 color:'#FFF',border:'none',cursor:'pointer'
               }}>
                 <span>{cat}</span><span>{categoryCounts[cat]}</span>
               </button>
             ))}
-            <button onClick={()=>setShowTemp(t=>!t)} style={{
+            <button onClick={()=>setShowTemp(t=>!t)}
+                    style={{
               display:'block',margin:'6px 0',
               padding:'6px',width:'100%',
-              background: showTemp? '#555' : '#CCC',
+              background:showTemp?'#555':'#CCC',
               color:'#FFF',border:'none',cursor:'pointer'
             }}>Temperature</button>
           </div>
         </div>
-
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import metarData from './alb_metar.json';
 // Aircraft identifiers & colors
 const tailsOrder = ['N65620','N854GW','N756VH'];
 const tailColors = {
-  N65620: '#8A2BE2',
+  N65620: '#E63946',
   N854GW: '#2A9D8F',
   N756VH: '#264653',
 };
